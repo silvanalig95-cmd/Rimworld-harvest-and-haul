@@ -1,37 +1,51 @@
 # Harvest and Haul (RimWorld 1.6)
 
-Pawns bring their own harvest to storage.
+Pawns bring the items their own work produces to storage.
 
-In vanilla, a pawn harvests a field, chops trees or picks berries and leaves everything on the
-ground for somebody else to haul later, often while walking back to base anyway. With this mod
-the harvester puts the yield into its inventory while it works and delivers it itself.
+In vanilla, a pawn harvests a field, chops trees, mines ore or deconstructs a wall and leaves
+everything on the ground for somebody else to haul later, often while walking back to base
+anyway. With this mod the pawn puts those items into its inventory while it works and delivers
+them itself.
+
+## Where items get picked up
+
+| Source | What gets collected |
+|---|---|
+| Plants | Harvesting crops and berries, chopping trees, cutting plants. **This includes cutting as part of another job**, e.g. clearing a cell for sowing or for a building. |
+| Mining | Steel, components, silver, gold, plasteel, uranium, jade and other mined resources. |
+| Deep drilling | Every portion the drill produces. When full, the driller stops, delivers and can come back. |
+| Animals | Wool, milk and other products from shearing and milking. |
+| Deconstruction | The materials a building or floor gives back when it is taken apart. |
+| Fishing (Odyssey) | Fish and other catches. |
+| Stone / slag chunks | Off by default. A single chunk fills most of an inventory. |
+
+Each source can be switched off in the settings.
 
 ## How it behaves
 
-- **Harvest goes into the pawn's inventory.** Each time a plant is harvested or cut (crops, berry
-  bushes, trees for wood, healroot, mushrooms, modded plants), its yield goes straight into the
-  harvester's inventory.
-- **It keeps harvesting while there is room.** The pawn does a whole run of harvests in a row,
-  as in vanilla.
-- **When full, it stops and delivers.** Once the next harvest would no longer fit within its
-  carrying capacity, the pawn finishes the current plant, delivers everything to storage, and
-  can come back for more afterwards.
-- **When done with field work, it delivers before doing anything else.** If the pawn's next job
-  is something other than field work (another job, eating, sleeping, recreation, meditation or
-  idling), it drops off the harvest first.
-- **Sowing counts as field work**, so "harvest, then re-sow the field" is not interrupted by a
-  trip to storage. The pawn sows first and delivers afterwards. Field work here means any job
-  from a work type that uses the Plants skill, so mods that split up Growing work types are
-  covered too.
-- **Delivering is part of harvesting.** Pawns who are incapable of hauling or dumb labor still
-  bring in their own harvest. It does not depend on the Hauling work type.
+- **Always fills up the inventory.** Whatever a pawn's work drops goes into its inventory, up
+  to its carrying capacity. This happens even when the drop is only a side effect of another
+  job.
+- **Keeps working while there is room.** The pawn carries on with the same kind of work:
+  harvesting then sowing, mining cell after cell, milking one cow after another,
+  deconstructing then building. "Same kind" means the next job uses the same skill (Plants,
+  Mining, Animals, Construction...), so mods that split up work types are covered too.
+- **When something no longer fits, it delivers.** The pawn finishes what it is doing, picks up
+  the stack that didn't fit into its hands, brings everything to storage, and can come back
+  for more afterwards.
+- **When done with that kind of work, it delivers before doing anything else.** If the next
+  job is different work, eating, sleeping, recreation, meditation or idling, it drops off its
+  items first.
+- **Delivering is part of the work.** Pawns who are incapable of hauling or dumb labor still
+  bring in what they produced. It does not depend on the Hauling work type.
 - **What comes first:** drafting, mental states, fleeing and fighting, emergency work
   (firefighting, emergency tending), medical rest, urgent hunger or exhaustion, rituals and
   caravans, and anything the player ordered or queued.
-- Pawns that can barely carry anything more (e.g. in heavy armor) leave the harvest on the
-  ground like vanilla, so they don't make a trip after every plant.
+- **Pawns that can barely carry anything more** (e.g. in heavy armor) still fill their
+  inventory. They only stop work for a delivery trip once they carry a minimum weight, so they
+  don't walk to storage after every plant.
 - If no storage accepts an item, the pawn drops it, and the normal haulers take over.
-- Colony mechanoids that harvest (agrihands) also deliver their harvest. You can turn this off.
+- Colony mechanoids (agrihands etc.) also collect and deliver. You can turn this off.
 
 ## Settings
 
@@ -39,12 +53,13 @@ Options → Mod settings → Harvest and Haul
 
 | Setting | Default | What it does |
 |---|---|---|
-| Harvesters collect what they harvest | on | Master switch. Harvest already being carried is still delivered when it's turned off. |
-| Fill inventory up to | 100 % | Share of the pawn's carrying capacity that may be filled with harvest. Lower means more, shorter trips. |
-| Only start collecting with at least X kg free | 5 kg | Below this free capacity, behave like vanilla. |
-| Deliver after at most X hours of field work | 8 h | A pawn that keeps sowing or harvesting delivers after this long anyway. |
-| Deliver before eating, sleeping or recreation | on | Drop off harvest before non-urgent needs. |
-| Colony mechanoids deliver their harvest too | on | Applies to agrihands and similar mechs. |
+| Pawns collect what their work drops | on | Master switch. Items already being carried are still delivered when it's turned off. |
+| Collect items from … | all on, chunks off | One switch per source (see the table above). |
+| Fill inventory up to | 100 % | Share of the pawn's carrying capacity that may be filled. |
+| Stop working to deliver only with at least X kg collected | 5 kg | Below this, a full pawn keeps working and delivers when it is done with that kind of work. |
+| Deliver after at most X hours of the same kind of work | 8 h | A pawn that keeps working delivers after this long anyway. |
+| Deliver before eating, sleeping or recreation | on | Drop off items before non-urgent needs. |
+| Colony mechanoids collect and deliver too | on | Applies to agrihands and similar mechs. |
 | Verbose logging | off | Logs decisions, useful for bug reports. |
 
 ## Compatibility
@@ -52,16 +67,21 @@ Options → Mod settings → Harvest and Haul
 Compatibility was a design goal:
 
 - **No XML patches** to existing defs, think trees or races. The mod adds one JobDef.
-- **Four small Harmony patches, no transpilers.** Each is applied separately and fails safely:
-  - `Plant.PlantCollected` (postfix) puts the yield into the harvester's inventory.
-  - `Pawn_JobTracker.TryFindAndStartJob` (prefix/finalizer) marks when a pawn is choosing a new job.
-  - `Pawn_JobTracker.DetermineNextJob` (postfix) can swap the chosen job for "deliver harvest".
-    It only does this for pawns carrying harvest, and only for job sources it knows are safe to
-    delay: normal work, idling, and (optionally) food, rest, joy and meditation.
+- **Only plain Harmony prefixes/postfixes, no transpilers.** Each is applied separately and
+  fails safely. If a game update moves one of the methods, only that one source stops being
+  collected.
+  - Item sources: `Plant.PlantCollected`, `Mineable.DestroyMined`, `CompDeepDrill.TryProducePortion`,
+    `CompHasGatherableBodyResource.Gathered`, `JobDriver_Deconstruct.FinishedRemoving`,
+    `JobDriver_RemoveFloor.DoEffect`, `FishingUtility.GetCatchesFor`. These only observe what
+    was dropped and never change what the game does.
+  - `Pawn_JobTracker.TryFindAndStartJob` (prefix/finalizer) and `Pawn_JobTracker.DetermineNextJob`
+    (postfix) can swap the chosen job for "deliver items". This only happens for pawns carrying
+    collected items, and only for job sources known to be safe to delay: normal work, idling,
+    and (optionally) food, rest, joy and meditation.
   - `JobGiver_DropUnusedInventory.Drop` (prefix) stops vanilla from dumping raw food out of the
     inventory while it's on its way to storage.
 - If the job-selection patch can't be applied (e.g. a future game update renames something),
-  collecting switches itself off, so pawns never hoard harvest.
+  collecting switches itself off, so pawns never hoard items.
 - Uses the vanilla storage search and hauling toils, so stockpiles, shelves, fridges and storage
   mods such as LWM's Deep Storage or Adaptive Storage Framework work normally.
 - Things are tracked as "this pawn owes N of item X", so harvest merging with a stack the pawn

@@ -10,14 +10,14 @@ namespace HarvestAndHaul
 {
     public static class HarvestHaulUtility
     {
-        /// <summary>Harvest products land at or right next to the harvester; look a bit wider to be safe.</summary>
-        private const float PickupRadius = 2.9f;
+        /// <summary>Products land at or right next to the spot; look a bit wider to be safe.</summary>
+        private const int SearchMargin = 2;
 
         private const int DeliveryFailCooldownTicks = 600;
 
         /// <summary>
         /// False if the patch that makes pawns deliver could not be applied. Collecting is then
-        /// switched off, so pawns never end up hoarding harvest in their inventory.
+        /// switched off, so pawns never end up hoarding items in their inventory.
         /// </summary>
         public static bool DeliveryAvailable = true;
 
@@ -26,7 +26,7 @@ namespace HarvestAndHaul
         private static readonly List<Thing> tmpCandidates = new List<Thing>();
 
         // ------------------------------------------------------------------
-        // Who takes part
+        // Who and what takes part
         // ------------------------------------------------------------------
 
         public static bool PawnCanCollect(Pawn pawn)
@@ -49,6 +49,21 @@ namespace HarvestAndHaul
             return MassUtility.CanEverCarryAnything(pawn) && MassUtility.Capacity(pawn) > 0f;
         }
 
+        public static bool IsCollectableDef(ThingDef def)
+        {
+            if (def.category != ThingCategory.Item || !def.EverStorable(false))
+                return false;
+            if (def.IsCorpse || def == ThingDefOf.MinifiedThing)
+                return false;
+            return Settings.collectChunks || !IsChunk(def);
+        }
+
+        public static bool IsChunk(ThingDef def)
+        {
+            List<ThingCategoryDef> categories = def.thingCategories;
+            return categories != null && (categories.Contains(ThingCategoryDefOf.Chunks) || categories.Contains(ThingCategoryDefOf.StoneChunks));
+        }
+
         /// <summary>Free mass within the configured fill limit.</summary>
         public static float FreeMass(Pawn pawn)
         {
@@ -67,37 +82,158 @@ namespace HarvestAndHaul
             return CombatExtendedCompat.LimitCount(pawn, thing, count);
         }
 
+        /// <summary>Stopping work for a delivery trip is only worth it once the load has some weight.</summary>
+        public static bool WorthATrip(HarvestLoad load) => load.Mass >= Settings.minTripMass;
+
         // ------------------------------------------------------------------
-        // Collecting
+        // Item sources (called from the Harmony patches)
         // ------------------------------------------------------------------
 
-        /// <summary>Called from the Plant.PlantCollected postfix.</summary>
+        /// <summary>A plant was harvested or cut, for any reason (harvesting, chopping, clearing for sowing or building...).</summary>
         public static void Notify_PlantCollected(Pawn pawn, Plant plant)
         {
-            ThingDef harvestedDef = plant.def?.plant?.harvestedThingDef;
-            if (!Settings.enabled || !DeliveryAvailable || harvestedDef == null)
+            ThingDef def = plant.def?.plant?.harvestedThingDef;
+            if (!Settings.collectPlants || def == null)
                 return;
-            if (!harvestedDef.EverStorable(false) || !PawnCanCollect(pawn))
+            Submit(new CollectRequest
+            {
+                pawn = pawn,
+                map = pawn.Map,
+                area = CellRect.CenteredOn(pawn.Position, SearchMargin),
+                def = def,
+                fallbackSkill = SkillDefOf.Plants,
+            });
+        }
+
+        /// <summary>A rock, ore or other mineable was mined out.</summary>
+        public static void Notify_Mined(Pawn pawn, Map map, CellRect rect, ThingDef mineableThing)
+        {
+            if (!Settings.collectMining || mineableThing == null || pawn.Map != map)
+                return;
+            Submit(new CollectRequest
+            {
+                pawn = pawn,
+                map = map,
+                area = rect.ExpandedBy(SearchMargin),
+                def = mineableThing,
+                fallbackSkill = SkillDefOf.Mining,
+            });
+        }
+
+        /// <summary>A deep drill produced a portion of resources.</summary>
+        public static void Notify_DeepDrillPortion(Pawn driller, Thing drill)
+        {
+            if (!Settings.collectDeepDrill || drill == null || !drill.Spawned || driller.Map != drill.Map)
+                return;
+            Submit(new CollectRequest
+            {
+                pawn = driller,
+                map = drill.Map,
+                area = drill.OccupiedRect().ExpandedBy(SearchMargin + 1),
+                anyDeepResource = true,
+                fallbackSkill = SkillDefOf.Mining,
+                jobToEndWhenFull = driller.CurJob,
+            });
+        }
+
+        /// <summary>Wool, milk or another body resource was gathered from an animal.</summary>
+        public static void Notify_AnimalProductGathered(Pawn doer, ThingDef product)
+        {
+            if (!Settings.collectAnimalProducts || product == null)
+                return;
+            Submit(new CollectRequest
+            {
+                pawn = doer,
+                map = doer.Map,
+                area = CellRect.CenteredOn(doer.Position, SearchMargin),
+                def = product,
+                fallbackSkill = SkillDefOf.Animals,
+            });
+        }
+
+        /// <summary>A building or floor was removed and refunded some of its materials.</summary>
+        public static void Notify_Deconstructed(Pawn pawn, Map map, CellRect rect, HashSet<ThingDef> refundDefs)
+        {
+            if (!Settings.collectDeconstruction || refundDefs == null || refundDefs.Count == 0 || pawn.Map != map)
+                return;
+            Submit(new CollectRequest
+            {
+                pawn = pawn,
+                map = map,
+                area = rect.ExpandedBy(SearchMargin),
+                defs = refundDefs,
+                fallbackSkill = SkillDefOf.Construction,
+            });
+        }
+
+        /// <summary>Fish were caught. They are placed after this is called, so only the next-tick sweep looks for them.</summary>
+        public static void Notify_FishCaught(Pawn pawn, IntVec3 spot, List<Thing> catches)
+        {
+            if (!Settings.collectFishing || catches == null || catches.Count == 0)
+                return;
+            var defs = new HashSet<ThingDef>();
+            for (int i = 0; i < catches.Count; i++)
+            {
+                if (catches[i]?.def != null)
+                    defs.Add(catches[i].def);
+            }
+            CellRect area = CellRect.CenteredOn(pawn.Position, SearchMargin);
+            if (spot.IsValid)
+                area = area.Encapsulate(CellRect.CenteredOn(spot, 1));
+            Submit(new CollectRequest
+            {
+                pawn = pawn,
+                map = pawn.Map,
+                area = area,
+                defs = defs,
+                fallbackSkill = SkillDefOf.Animals,
+                jobToEndWhenFull = pawn.CurJob,
+            }, collectNow: false);
+        }
+
+        private static void Submit(CollectRequest request, bool collectNow = true)
+        {
+            if (!Settings.enabled || !DeliveryAvailable || !PawnCanCollect(request.pawn) || request.map == null)
                 return;
             HarvestTracker tracker = HarvestTracker.Instance;
             if (tracker == null)
                 return;
-
-            Map map = pawn.Map;
-            IntVec3 cell = pawn.Position;
-            float expectedCount = plant.def.plant.harvestYield;
-            CollectHarvest(pawn, harvestedDef, cell, map, expectedCount);
-            tracker.QueueSweep(pawn, harvestedDef, cell, map, expectedCount);
+            if (collectNow)
+                CollectItems(request);
+            tracker.QueueSweep(request);
         }
 
-        /// <summary>
-        /// Moves loose items of <paramref name="def"/> around <paramref name="center"/> into the
-        /// pawn's inventory, as far as its carrying capacity allows.
-        /// <paramref name="expectedCount"/> is the plant's nominal yield, used to judge whether
-        /// another harvest of this kind would still fit.
-        /// </summary>
-        public static void CollectHarvest(Pawn pawn, ThingDef def, IntVec3 center, Map map, float expectedCount)
+        /// <summary>Runs one tick after the drop: collect anything that appeared late, and end continuous jobs once full.</summary>
+        public static void ProcessSweep(CollectRequest request)
         {
+            Pawn pawn = request.pawn;
+            if (pawn == null || !pawn.Spawned || pawn.Map != request.map)
+                return;
+            CollectItems(request);
+
+            Job job = request.jobToEndWhenFull;
+            if (job == null || pawn.CurJob != job)
+                return;
+            HarvestLoad load = HarvestTracker.Instance?.GetLoad(pawn);
+            if (load != null && load.full && WorthATrip(load))
+            {
+                HarvestAndHaulMod.Debug($"{pawn.LabelShort} is full, stopping {job.def.defName} to deliver.");
+                pawn.jobs.EndCurrentJob(JobCondition.Succeeded);
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Collecting
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Moves matching loose items in the request's area into the pawn's inventory, filling it
+        /// up as far as its carrying capacity allows.
+        /// </summary>
+        public static void CollectItems(CollectRequest request)
+        {
+            Pawn pawn = request.pawn;
+            Map map = request.map;
             if (!Settings.enabled || !DeliveryAvailable || !PawnCanCollect(pawn) || pawn.Map != map)
                 return;
             HarvestTracker tracker = HarvestTracker.Instance;
@@ -105,85 +241,66 @@ namespace HarvestAndHaul
                 return;
 
             tmpCandidates.Clear();
-            int numCells = GenRadial.NumCellsInRadius(PickupRadius);
-            for (int i = 0; i < numCells; i++)
+            foreach (IntVec3 c in request.area.ClipInsideMap(map))
             {
-                IntVec3 c = center + GenRadial.RadialPattern[i];
-                if (!c.InBounds(map))
-                    continue;
                 List<Thing> things = map.thingGrid.ThingsListAtFast(c);
                 for (int j = 0; j < things.Count; j++)
                 {
                     Thing t = things[j];
-                    if (t.def == def && CanCollect(pawn, t))
-                    {
+                    if (request.Matches(t.def) && CanCollect(pawn, t))
                         tmpCandidates.Add(t);
-                    }
                 }
             }
             if (tmpCandidates.Count == 0)
                 return;
+            IntVec3 pawnPos = pawn.Position;
+            tmpCandidates.SortBy(t => t.Position.DistanceToSquared(pawnPos));
 
-            float unitMass = tmpCandidates[0].GetStatValue(StatDefOf.Mass);
-            float expectedMass = expectedCount * unitMass;
             HarvestLoad load = tracker.GetLoad(pawn);
-            bool alreadyCarrying = load != null && !load.Empty;
-
-            // Only start a new load if a full harvest fits and there is meaningful room left.
-            // Otherwise behave like vanilla and leave it for the haulers.
-            if (!alreadyCarrying && FreeMass(pawn) < Mathf.Max(expectedMass, Settings.minFreeMassToStart))
-            {
-                tmpCandidates.Clear();
-                return;
-            }
-
             int picked = 0;
-            bool leftSomething = false;
+            float smallestUnitMass = float.MaxValue;
+            Thing leftover = null;
             for (int i = 0; i < tmpCandidates.Count; i++)
             {
                 Thing t = tmpCandidates[i];
+                if (t.Destroyed || !t.Spawned)
+                    continue;
+                float unitMass = t.GetStatValue(StatDefOf.Mass);
                 int count = CountThatFits(pawn, t, unitMass);
+                if (count < t.stackCount && leftover == null)
+                    leftover = t; // whatever stays behind of this stack
                 if (count <= 0)
-                {
-                    leftSomething = true;
-                    break;
-                }
-                if (count < t.stackCount)
-                    leftSomething = true;
+                    continue;
 
                 IntVec3 pos = t.Position;
+                ThingDef def = t.def;
                 Thing taken = t.SplitOff(count);
                 int takenCount = taken.stackCount;
-                if (pawn.inventory.innerContainer.TryAdd(taken, canMergeWithExistingStacks: true))
-                {
-                    picked += takenCount;
-                }
-                else
+                if (!pawn.inventory.innerContainer.TryAdd(taken, canMergeWithExistingStacks: true))
                 {
                     // Should not happen with an inventory, but never lose items.
                     if (!taken.Destroyed && !taken.Spawned)
                         GenPlace.TryPlaceThing(taken, pos, map, ThingPlaceMode.Near);
-                    leftSomething = true;
-                    break;
+                    continue;
                 }
+
+                if (load == null)
+                    load = tracker.GetOrCreateLoad(pawn);
+                load.Add(def, takenCount);
+                picked += takenCount;
+                smallestUnitMass = Mathf.Min(smallestUnitMass, unitMass);
+                HarvestAndHaulMod.Debug($"{pawn.LabelShort} collected {takenCount}x {def.label} (free {FreeMass(pawn):0.##} kg).");
             }
             tmpCandidates.Clear();
 
-            if (picked > 0)
-            {
-                load = tracker.GetOrCreateLoad(pawn);
-                load.Add(def, picked);
-                // Largest single harvest seen in this load: a conservative guess for the next one.
-                load.lastYieldMass = Mathf.Max(load.lastYieldMass, picked * unitMass);
-                HarvestAndHaulMod.Debug($"{pawn.LabelShort} collected {picked}x {def.label} (free mass now {FreeMass(pawn):0.##} kg).");
-            }
-
             if (load == null || load.Empty)
                 return;
+            if (picked > 0)
+                AddWorkSkills(pawn, load, request.fallbackSkill);
 
-            // Stop harvesting if something did not fit, or the next harvest of this size would not fit.
-            if (leftSomething || (picked > 0 && FreeMass(pawn) < Mathf.Max(load.lastYieldMass, expectedMass)))
-                MarkFull(pawn, load);
+            // Full once something did not fit, or there is no room left for even one more unit.
+            if (leftover != null || (picked > 0 && FreeMass(pawn) < smallestUnitMass))
+                MarkFull(pawn, load, leftover);
         }
 
         private static bool CanCollect(Pawn pawn, Thing t)
@@ -198,11 +315,29 @@ namespace HarvestAndHaul
             return pawn.CanReserve(t);
         }
 
-        private static void MarkFull(Pawn pawn, HarvestLoad load)
+        private static void AddWorkSkills(Pawn pawn, HarvestLoad load, SkillDef fallback)
         {
+            List<SkillDef> jobSkills = pawn.CurJob?.workGiverDef?.workType?.relevantSkills;
+            if (jobSkills != null && jobSkills.Count > 0)
+            {
+                for (int i = 0; i < jobSkills.Count; i++)
+                    load.AddSkill(jobSkills[i]);
+            }
+            else
+            {
+                load.AddSkill(fallback);
+            }
+        }
+
+        private static void MarkFull(Pawn pawn, HarvestLoad load, Thing leftover)
+        {
+            if (leftover != null)
+                load.leftover = leftover;
             if (!load.full)
-                HarvestAndHaulMod.Debug($"{pawn.LabelShort} is full and will deliver after this plant.");
+                HarvestAndHaulMod.Debug($"{pawn.LabelShort} is full ({load.Mass:0.#} kg collected).");
             load.full = true;
+            if (!WorthATrip(load))
+                return;
 
             // Finish the plant currently being worked on, then end the job by dropping the
             // remaining queued plants. The job then succeeds through its normal vanilla flow.
@@ -216,7 +351,7 @@ namespace HarvestAndHaul
 
         /// <summary>
         /// Called when the pawn has just picked its next job (after finishing or ending its previous one).
-        /// Replaces that job with a delivery job when the harvest should be brought to storage first.
+        /// Replaces that job with a delivery job when the load should be brought to storage first.
         /// </summary>
         public static void TryReplaceNextJob(Pawn pawn, ref ThinkResult result)
         {
@@ -234,7 +369,7 @@ namespace HarvestAndHaul
 
             Job job = JobMaker.MakeJob(HarvestAndHaulDefOf.HarvestAndHaul_DeliverHarvest);
             load.lastDeliveryJobTick = Find.TickManager.TicksGame;
-            HarvestAndHaulMod.Debug($"{pawn.LabelShort} delivers harvest instead of {(result.IsValid ? result.Job.def.defName : "idling")}.");
+            HarvestAndHaulMod.Debug($"{pawn.LabelShort} delivers its load instead of {(result.IsValid ? result.Job.def.defName : "idling")}.");
             result = new ThinkResult(job, result.IsValid ? result.SourceNode : null, JobTag.MiscWork, false);
         }
 
@@ -254,9 +389,9 @@ namespace HarvestAndHaul
             int ticks = Find.TickManager.TicksGame;
             bool holdExpired = load.startedTick >= 0 && ticks - load.startedTick > Settings.maxHoldHours * GenDate.TicksPerHour;
 
-            // Keep harvesting / sowing while there is room; when full (or held too long) go deliver.
-            if (IsFieldWork(job))
-                return load.full || holdExpired;
+            // Keep doing the same kind of work while there is room; when full (or held too long) deliver.
+            if (IsSameKindOfWork(job, load))
+                return (load.full && WorthATrip(load)) || holdExpired;
 
             return IsPostponableSource(next.SourceNode);
         }
@@ -289,18 +424,38 @@ namespace HarvestAndHaul
             return true;
         }
 
-        /// <summary>Harvesting, cutting, sowing and anything else from a work type that uses the Plants skill.</summary>
-        public static bool IsFieldWork(Job job)
+        /// <summary>
+        /// True if the next job uses one of the skills of the work that produced the load: harvesting
+        /// then sowing (Plants), mining one cell after another (Mining), milking one cow after another
+        /// (Animals), deconstructing then building (Construction)...
+        /// </summary>
+        public static bool IsSameKindOfWork(Job job, HarvestLoad load)
         {
+            List<SkillDef> jobSkills = job.workGiverDef?.workType?.relevantSkills;
+            if (jobSkills != null)
+            {
+                for (int i = 0; i < jobSkills.Count; i++)
+                {
+                    if (load.skills.Contains(jobSkills[i]))
+                        return true;
+                }
+            }
+
+            // Jobs that were not handed out by a work giver.
             Type driver = job.def.driverClass;
-            if (driver != null && (typeof(JobDriver_PlantWork).IsAssignableFrom(driver) || typeof(JobDriver_PlantSow).IsAssignableFrom(driver)))
+            if (driver == null)
+                return false;
+            if (load.skills.Contains(SkillDefOf.Plants)
+                && (typeof(JobDriver_PlantWork).IsAssignableFrom(driver) || typeof(JobDriver_PlantSow).IsAssignableFrom(driver)))
                 return true;
-            WorkTypeDef workType = job.workGiverDef?.workType;
-            return workType?.relevantSkills != null && workType.relevantSkills.Contains(SkillDefOf.Plants);
+            if (load.skills.Contains(SkillDefOf.Mining)
+                && (typeof(JobDriver_Mine).IsAssignableFrom(driver) || typeof(JobDriver_OperateDeepDrill).IsAssignableFrom(driver)))
+                return true;
+            return false;
         }
 
         /// <summary>
-        /// Jobs that may wait until the harvest is delivered. Anything not listed here (emergencies,
+        /// Jobs that may wait until the load is delivered. Anything not listed here (emergencies,
         /// medical care, fleeing, rituals, jobs from other mods...) is left alone.
         /// </summary>
         private static bool IsPostponableSource(ThinkNode node)

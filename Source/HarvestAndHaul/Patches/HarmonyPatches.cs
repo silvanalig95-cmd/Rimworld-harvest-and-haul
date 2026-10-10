@@ -21,16 +21,30 @@ namespace HarvestAndHaul
                 && TryPatch(harmony, AccessTools.Method(typeof(Pawn_JobTracker), "DetermineNextJob"),
                     postfix: nameof(Patch_DetermineNextJob.Postfix), patchClass: typeof(Patch_DetermineNextJob));
 
-            // Without the delivery decision pawns would hoard harvest, so collecting is switched off.
+            // Without the delivery decision pawns would hoard items, so collecting is switched off.
             HarvestHaulUtility.DeliveryAvailable = decisionPatched;
             if (!decisionPatched)
-                Log.Error(HarvestAndHaulMod.LogPrefix + "Could not hook into job selection; harvest collecting is disabled.");
-
-            TryPatch(harmony, AccessTools.Method(typeof(Plant), nameof(Plant.PlantCollected)),
-                postfix: nameof(Patch_Plant_PlantCollected.Postfix), patchClass: typeof(Patch_Plant_PlantCollected));
+                Log.Error(HarvestAndHaulMod.LogPrefix + "Could not hook into job selection; collecting is disabled.");
 
             TryPatch(harmony, AccessTools.Method(typeof(JobGiver_DropUnusedInventory), "Drop"),
                 prefix: nameof(Patch_JobGiver_DropUnusedInventory_Drop.Prefix), patchClass: typeof(Patch_JobGiver_DropUnusedInventory_Drop));
+
+            // Item sources. Each one is optional: if a game update moves one of these methods, only
+            // that source stops being collected.
+            TryPatch(harmony, AccessTools.Method(typeof(Plant), nameof(Plant.PlantCollected)),
+                postfix: nameof(Patch_Plant_PlantCollected.Postfix), patchClass: typeof(Patch_Plant_PlantCollected));
+            TryPatch(harmony, AccessTools.Method(typeof(Mineable), nameof(Mineable.DestroyMined)),
+                prefix: nameof(Patch_Mineable_DestroyMined.Prefix), postfix: nameof(Patch_Mineable_DestroyMined.Postfix), patchClass: typeof(Patch_Mineable_DestroyMined));
+            TryPatch(harmony, AccessTools.Method(typeof(CompDeepDrill), "TryProducePortion"),
+                postfix: nameof(Patch_CompDeepDrill_TryProducePortion.Postfix), patchClass: typeof(Patch_CompDeepDrill_TryProducePortion));
+            TryPatch(harmony, AccessTools.Method(typeof(CompHasGatherableBodyResource), nameof(CompHasGatherableBodyResource.Gathered)),
+                postfix: nameof(Patch_CompHasGatherableBodyResource_Gathered.Postfix), patchClass: typeof(Patch_CompHasGatherableBodyResource_Gathered));
+            TryPatch(harmony, AccessTools.Method(typeof(JobDriver_Deconstruct), "FinishedRemoving"),
+                prefix: nameof(Patch_JobDriver_Deconstruct_FinishedRemoving.Prefix), postfix: nameof(Patch_JobDriver_Deconstruct_FinishedRemoving.Postfix), patchClass: typeof(Patch_JobDriver_Deconstruct_FinishedRemoving));
+            TryPatch(harmony, AccessTools.Method(typeof(JobDriver_RemoveFloor), "DoEffect"),
+                prefix: nameof(Patch_JobDriver_RemoveFloor_DoEffect.Prefix), postfix: nameof(Patch_JobDriver_RemoveFloor_DoEffect.Postfix), patchClass: typeof(Patch_JobDriver_RemoveFloor_DoEffect));
+            TryPatch(harmony, AccessTools.Method(typeof(FishingUtility), nameof(FishingUtility.GetCatchesFor)),
+                postfix: nameof(Patch_FishingUtility_GetCatchesFor.Postfix), patchClass: typeof(Patch_FishingUtility_GetCatchesFor));
         }
 
         private static bool TryPatch(Harmony harmony, MethodBase target, Type patchClass,
@@ -53,24 +67,6 @@ namespace HarvestAndHaul
             {
                 Log.Error(HarvestAndHaulMod.LogPrefix + "Failed to patch " + target.DeclaringType?.Name + "." + target.Name + ": " + e);
                 return false;
-            }
-        }
-    }
-
-    /// <summary>After a plant was harvested or cut, put the yield into the harvester's inventory.</summary>
-    public static class Patch_Plant_PlantCollected
-    {
-        public static void Postfix(Plant __instance, Pawn by)
-        {
-            if (by == null)
-                return;
-            try
-            {
-                HarvestHaulUtility.Notify_PlantCollected(by, __instance);
-            }
-            catch (Exception e)
-            {
-                Log.ErrorOnce(HarvestAndHaulMod.LogPrefix + "Error while collecting harvest: " + e, 0x48A1);
             }
         }
     }

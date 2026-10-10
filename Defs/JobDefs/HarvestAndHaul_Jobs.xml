@@ -4,7 +4,7 @@
   <JobDef>
     <defName>HarvestAndHaul_DeliverHarvest</defName>
     <driverClass>HarvestAndHaul.JobDriver_DeliverHarvest</driverClass>
-    <reportString>delivering harvest.</reportString>
+    <reportString>delivering collected items.</reportString>
     <suspendable>false</suspendable>
   </JobDef>
 

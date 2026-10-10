@@ -3,7 +3,7 @@
   <name>Harvest and Haul</name>
   <author>silvanalig95</author>
   <packageId>silvanalig95.HarvestAndHaul</packageId>
-  <modVersion>1.0.0</modVersion>
+  <modVersion>1.1.0</modVersion>
   <url>https://github.com/silvanalig95-cmd/Rimworld-harvest-and-haul</url>
   <supportedVersions>
     <li>1.6</li>
@@ -19,18 +19,20 @@
   <loadAfter>
     <li>brrainz.harmony</li>
   </loadAfter>
-  <description>Pawns bring their own harvest to storage.
+  <description>Pawns bring the items their own work produces to storage.
 
-In vanilla, a pawn harvests a field, chops trees or picks berries and leaves everything lying on the ground for somebody else to haul later. With this mod the harvester puts the yield into its inventory while working and takes it to storage itself:
+In vanilla, a pawn harvests a field, chops trees, mines ore or deconstructs a wall and leaves everything on the ground for somebody else to haul later. With this mod the pawn puts those items into its inventory while it works and takes them to storage itself.
 
-- The pawn keeps harvesting as long as the next harvest still fits into its inventory.
-- When it is full, it stops harvesting, delivers everything, and can come back for more afterwards.
-- When it is done with field work and would go do something else (another job, eating, sleeping, recreation, or nothing at all), it drops off its harvest first.
-- Sowing right after harvesting counts as field work, so the pawn sows first and delivers afterwards.
-- Delivering is part of harvesting: pawns that are incapable of hauling or dumb labor still bring their own harvest in.
+Collected from: harvesting and cutting plants (also when a plant is cut as part of another job, e.g. clearing a cell for sowing or building), mining, deep drilling, shearing and milking, deconstructing buildings and removing floors, and fishing (Odyssey). Stone chunks are optional.
+
+- Pawns always fill up their inventory with what their work drops.
+- They keep going with the same kind of work (harvest then sow, mine cell after cell, milk cow after cow) as long as there is room.
+- When something no longer fits, they deliver everything and carry the rest in their hands.
+- When they are done with that kind of work and would do something else (another job, eating, sleeping, recreation, or nothing), they drop off their items first.
+- Delivering is part of the work: pawns incapable of hauling or dumb labor still bring in what they produced.
 - Urgent needs, emergencies, drafting, mental breaks, rituals and anything the player orders always come first.
 
-Works with crops, berry bushes, trees (wood), healroot, mushrooms, and modded plants. Uses the normal storage system, so stockpiles, shelves, fridges and storage mods (e.g. LWM's Deep Storage, Adaptive Storage) work as usual.
+Uses the normal storage system, so stockpiles, shelves, fridges and storage mods (e.g. LWM's Deep Storage, Adaptive Storage) work as usual.
 
-Compatibility: no def or think-tree edits, only four small Harmony prefixes/postfixes, no transpilers. Safe to add to an existing save. Optional support for Combat Extended's inventory limits. Settings are in Options → Mod settings → Harvest and Haul.</description>
+Compatibility: no def or think-tree edits, only small Harmony prefixes/postfixes, no transpilers. Each hook fails safely on its own. Safe to add to an existing save. Optional support for Combat Extended's inventory limits. Settings are in Options → Mod settings → Harvest and Haul.</description>
 </ModMetaData>
