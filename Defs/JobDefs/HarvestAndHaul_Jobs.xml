@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+
+  <JobDef>
+    <defName>HarvestAndHaul_DeliverHarvest</defName>
+    <driverClass>HarvestAndHaul.JobDriver_DeliverHarvest</driverClass>
+    <reportString>delivering harvest.</reportString>
+    <suspendable>false</suspendable>
+  </JobDef>
+
+</Defs>

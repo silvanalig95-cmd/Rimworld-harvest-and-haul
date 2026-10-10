@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+
+  <!-- Job reports -->
+  <HarvestAndHaul_DeliveringHarvest>delivering harvest.</HarvestAndHaul_DeliveringHarvest>
+  <HarvestAndHaul_DeliveringThing>delivering harvested {THING}.</HarvestAndHaul_DeliveringThing>
+
+  <!-- Settings -->
+  <HarvestAndHaul_SettingsCategory>Harvest and Haul</HarvestAndHaul_SettingsCategory>
+  <HarvestAndHaul_Enabled>Harvesters collect what they harvest</HarvestAndHaul_Enabled>
+  <HarvestAndHaul_Enabled_Desc>Pawns put the yield of harvested or cut plants (crops, berries, wood, ...) into their inventory and bring it to storage themselves. When switched off, harvest that is already being carried is still delivered.</HarvestAndHaul_Enabled_Desc>
+  <HarvestAndHaul_FillPercent>Fill inventory up to: {0} of carrying capacity</HarvestAndHaul_FillPercent>
+  <HarvestAndHaul_FillPercent_Desc>Once the next harvest would not fit within this limit, the pawn stops harvesting and delivers everything first. Lower values mean more, shorter trips.</HarvestAndHaul_FillPercent_Desc>
+  <HarvestAndHaul_MinFreeMass>Only start collecting with at least {0} kg free</HarvestAndHaul_MinFreeMass>
+  <HarvestAndHaul_MinFreeMass_Desc>Pawns that can barely carry anything more (for example in heavy armor) leave their harvest on the ground like in vanilla instead of making a trip after every plant.</HarvestAndHaul_MinFreeMass_Desc>
+  <HarvestAndHaul_MaxHoldHours>Deliver after at most {0} hours of field work</HarvestAndHaul_MaxHoldHours>
+  <HarvestAndHaul_MaxHoldHours_Desc>While a pawn keeps harvesting or sowing it carries its harvest along. After this many in-game hours it delivers anyway, so the colony does not wait too long for it.</HarvestAndHaul_MaxHoldHours_Desc>
+  <HarvestAndHaul_DeliverBeforeNeeds>Deliver before eating, sleeping or recreation</HarvestAndHaul_DeliverBeforeNeeds>
+  <HarvestAndHaul_DeliverBeforeNeeds_Desc>When a pawn is done with field work and heads off to eat, sleep, relax or meditate, it drops off its harvest first. Never applies when the pawn is urgently hungry, very tired or needs medical rest.</HarvestAndHaul_DeliverBeforeNeeds_Desc>
+  <HarvestAndHaul_IncludeMechanoids>Colony mechanoids deliver their harvest too</HarvestAndHaul_IncludeMechanoids>
+  <HarvestAndHaul_IncludeMechanoids_Desc>Applies to mechanoids that can harvest and carry things, such as agrihands (Biotech).</HarvestAndHaul_IncludeMechanoids_Desc>
+  <HarvestAndHaul_VerboseLogging>Verbose logging (for bug reports)</HarvestAndHaul_VerboseLogging>
+  <HarvestAndHaul_ResetDefaults>Reset to defaults</HarvestAndHaul_ResetDefaults>
+
+</LanguageData>
