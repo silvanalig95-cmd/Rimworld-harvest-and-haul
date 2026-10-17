@@ -14,6 +14,7 @@ namespace HarvestAndHaul
         public bool collectDeepDrill = true;
         public bool collectAnimalProducts = true;
         public bool collectDeconstruction = true;
+        public bool haulDeconstructionLeftovers = true;
         public bool collectFishing = true;
         public bool collectChunks;
 
@@ -43,6 +44,7 @@ namespace HarvestAndHaul
             Scribe_Values.Look(ref collectDeepDrill, "collectDeepDrill", true);
             Scribe_Values.Look(ref collectAnimalProducts, "collectAnimalProducts", true);
             Scribe_Values.Look(ref collectDeconstruction, "collectDeconstruction", true);
+            Scribe_Values.Look(ref haulDeconstructionLeftovers, "haulDeconstructionLeftovers", true);
             Scribe_Values.Look(ref collectFishing, "collectFishing", true);
             Scribe_Values.Look(ref collectChunks, "collectChunks", false);
             Scribe_Values.Look(ref fillPercent, "fillPercent", 1f);
@@ -67,6 +69,7 @@ namespace HarvestAndHaul
             listing.CheckboxLabeled("HarvestAndHaul_CollectDeepDrill".Translate(), ref collectDeepDrill, "HarvestAndHaul_CollectDeepDrill_Desc".Translate());
             listing.CheckboxLabeled("HarvestAndHaul_CollectAnimalProducts".Translate(), ref collectAnimalProducts, "HarvestAndHaul_CollectAnimalProducts_Desc".Translate());
             listing.CheckboxLabeled("HarvestAndHaul_CollectDeconstruction".Translate(), ref collectDeconstruction, "HarvestAndHaul_CollectDeconstruction_Desc".Translate());
+            listing.CheckboxLabeled("HarvestAndHaul_HaulDeconstructionLeftovers".Translate(), ref haulDeconstructionLeftovers, "HarvestAndHaul_HaulDeconstructionLeftovers_Desc".Translate());
             listing.CheckboxLabeled("HarvestAndHaul_CollectFishing".Translate(), ref collectFishing, "HarvestAndHaul_CollectFishing_Desc".Translate());
             listing.CheckboxLabeled("HarvestAndHaul_CollectChunks".Translate(), ref collectChunks, "HarvestAndHaul_CollectChunks_Desc".Translate());
             listing.GapLine();
@@ -102,6 +105,7 @@ namespace HarvestAndHaul
         {
             enabled = true;
             collectPlants = collectMining = collectDeepDrill = collectAnimalProducts = collectDeconstruction = collectFishing = true;
+            haulDeconstructionLeftovers = true;
             collectChunks = false;
             fillPercent = 1f;
             minTripMass = 5f;

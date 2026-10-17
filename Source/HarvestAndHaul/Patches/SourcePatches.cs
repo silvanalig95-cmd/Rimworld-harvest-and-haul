@@ -127,7 +127,10 @@ namespace HarvestAndHaul
         }
     }
 
-    /// <summary>A building was deconstructed and refunded part of its materials.</summary>
+    /// <summary>
+    /// A building was deconstructed. Refunded materials go into the inventory; anything else it
+    /// leaves behind (slag or stone chunks, fuel, contents...) is hauled right away by hand.
+    /// </summary>
     public static class Patch_JobDriver_Deconstruct_FinishedRemoving
     {
         public struct State
@@ -135,6 +138,7 @@ namespace HarvestAndHaul
             public Map map;
             public CellRect rect;
             public HashSet<ThingDef> refunds;
+            public HashSet<int> itemsBefore;
         }
 
         public static void Prefix(JobDriver_Deconstruct __instance, out State __state)
@@ -148,6 +152,7 @@ namespace HarvestAndHaul
                 __state.map = target.Map;
                 __state.rect = target.OccupiedRect();
                 __state.refunds = SourcePatchUtility.DefsOf(target.CostListAdjusted());
+                __state.itemsBefore = HarvestHaulUtility.SnapshotLeftoverArea(__state.map, __state.rect);
             }
             catch (Exception e)
             {
@@ -159,9 +164,12 @@ namespace HarvestAndHaul
         public static void Postfix(JobDriver_Deconstruct __instance, State __state)
         {
             Pawn pawn = __instance.pawn;
-            if (pawn == null || __state.map == null || __state.refunds == null)
+            if (pawn == null || __state.map == null)
                 return;
-            SourcePatchUtility.Run(() => HarvestHaulUtility.Notify_Deconstructed(pawn, __state.map, __state.rect, __state.refunds), "deconstruction refunds", 0x48A7);
+            if (__state.refunds != null)
+                SourcePatchUtility.Run(() => HarvestHaulUtility.Notify_Deconstructed(pawn, __state.map, __state.rect, __state.refunds), "deconstruction refunds", 0x48A7);
+            if (__state.itemsBefore != null)
+                SourcePatchUtility.Run(() => HarvestHaulUtility.Notify_DeconstructionLeftovers(pawn, __state.map, __state.rect, __state.itemsBefore), "deconstruction leftovers", 0x48AA);
         }
     }
 

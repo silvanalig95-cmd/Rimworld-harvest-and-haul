@@ -15,7 +15,7 @@ them itself.
 | Mining | Steel, components, silver, gold, plasteel, uranium, jade and other mined resources. |
 | Deep drilling | Every portion the drill produces. When full, the driller stops, delivers and can come back. |
 | Animals | Wool, milk and other products from shearing and milking. |
-| Deconstruction | The materials a building or floor gives back when it is taken apart. |
+| Deconstruction | The materials a building or floor gives back when it is taken apart. Anything else the building leaves behind (slag or stone chunks, fuel, its contents) is **hauled by the same pawn right after the job**, before it continues. |
 | Fishing (Odyssey) | Fish and other catches. |
 | Stone / slag chunks | Off by default. A single chunk fills most of an inventory. |
 
@@ -55,6 +55,7 @@ Options → Mod settings → Harvest and Haul
 |---|---|---|
 | Pawns collect what their work drops | on | Master switch. Items already being carried are still delivered when it's turned off. |
 | Collect items from … | all on, chunks off | One switch per source (see the table above). |
+| Haul chunks and other deconstruction leftovers right away | on | The deconstructing pawn carries those to storage straight after each deconstruction. Things no storage accepts stay where they are. |
 | Fill inventory up to | 100 % | Share of the pawn's carrying capacity that may be filled. |
 | Stop working to deliver only with at least X kg collected | 5 kg | Below this, a full pawn keeps working and delivers when it is done with that kind of work. |
 | Deliver after at most X hours of the same kind of work | 8 h | A pawn that keeps working delivers after this long anyway. |

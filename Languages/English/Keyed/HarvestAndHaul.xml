@@ -21,6 +21,8 @@
   <HarvestAndHaul_CollectAnimalProducts_Desc>Wool, milk and other products gathered from animals.</HarvestAndHaul_CollectAnimalProducts_Desc>
   <HarvestAndHaul_CollectDeconstruction>Deconstructing buildings and removing floors</HarvestAndHaul_CollectDeconstruction>
   <HarvestAndHaul_CollectDeconstruction_Desc>The materials a building or floor gives back when it is taken apart.</HarvestAndHaul_CollectDeconstruction_Desc>
+  <HarvestAndHaul_HaulDeconstructionLeftovers>Haul chunks and other deconstruction leftovers right away</HarvestAndHaul_HaulDeconstructionLeftovers>
+  <HarvestAndHaul_HaulDeconstructionLeftovers_Desc>Anything else a deconstructed building leaves behind (slag or stone chunks, fuel, its contents, materials that did not fit into the inventory) is carried to storage by the same pawn right after the job, before it continues. Things no storage accepts stay where they are.</HarvestAndHaul_HaulDeconstructionLeftovers_Desc>
   <HarvestAndHaul_CollectFishing>Fishing</HarvestAndHaul_CollectFishing>
   <HarvestAndHaul_CollectFishing_Desc>Fish and other catches (Odyssey).</HarvestAndHaul_CollectFishing_Desc>
   <HarvestAndHaul_CollectChunks>Also stone and slag chunks (heavy)</HarvestAndHaul_CollectChunks>

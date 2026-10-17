@@ -34,9 +34,16 @@ namespace HarvestAndHaul
         // hands on the delivery trip if it is still lying close by.
         public Thing leftover;
 
+        // Not saved: things the pawn's work left behind (e.g. slag chunks from deconstruction)
+        // that it hauls by hand right after its job, and when they were registered.
+        public readonly List<Thing> haulNow = new List<Thing>();
+        public int haulNowTick = -1;
+
         private static readonly List<ThingDef> tmpDefs = new List<ThingDef>();
 
         public bool Empty => owed.Count == 0;
+
+        public bool Idle => owed.Count == 0 && haulNow.Count == 0;
 
         public bool Owes(ThingDef def) => def != null && owed.ContainsKey(def);
 
@@ -200,7 +207,7 @@ namespace HarvestAndHaul
 
         private void Prune()
         {
-            loads.RemoveAll(kv => kv.Key == null || kv.Value == null || kv.Value.Empty
+            loads.RemoveAll(kv => kv.Key == null || kv.Value == null || kv.Value.Idle
                                   || kv.Key.Destroyed || kv.Key.Discarded || kv.Key.Dead);
         }
 

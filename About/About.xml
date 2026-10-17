@@ -3,7 +3,7 @@
   <name>Harvest and Haul</name>
   <author>silvanalig95</author>
   <packageId>silvanalig95.HarvestAndHaul</packageId>
-  <modVersion>1.1.0</modVersion>
+  <modVersion>1.2.0</modVersion>
   <url>https://github.com/silvanalig95-cmd/Rimworld-harvest-and-haul</url>
   <supportedVersions>
     <li>1.6</li>
@@ -24,6 +24,8 @@
 In vanilla, a pawn harvests a field, chops trees, mines ore or deconstructs a wall and leaves everything on the ground for somebody else to haul later. With this mod the pawn puts those items into its inventory while it works and takes them to storage itself.
 
 Collected from: harvesting and cutting plants (also when a plant is cut as part of another job, e.g. clearing a cell for sowing or building), mining, deep drilling, shearing and milking, deconstructing buildings and removing floors, and fishing (Odyssey). Stone chunks are optional.
+
+Slag chunks and anything else a deconstructed building leaves behind are hauled to storage by the same pawn right after the job.
 
 - Pawns always fill up their inventory with what their work drops.
 - They keep going with the same kind of work (harvest then sow, mine cell after cell, milk cow after cow) as long as there is room.

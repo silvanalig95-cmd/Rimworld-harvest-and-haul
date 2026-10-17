@@ -15,6 +15,10 @@ namespace HarvestAndHaul
 
         private const int DeliveryFailCooldownTicks = 600;
 
+        /// <summary>Things left behind are only hauled "right away" within this window and distance.</summary>
+        private const int HaulNowWindowTicks = GenDate.TicksPerHour;
+        private const float HaulNowMaxDistance = 25f;
+
         /// <summary>
         /// False if the patch that makes pawns deliver could not be applied. Collecting is then
         /// switched off, so pawns never end up hoarding items in their inventory.
@@ -164,6 +168,60 @@ namespace HarvestAndHaul
                 defs = refundDefs,
                 fallbackSkill = SkillDefOf.Construction,
             });
+        }
+
+        /// <summary>Ids of the items lying around a building before it is deconstructed.</summary>
+        public static HashSet<int> SnapshotLeftoverArea(Map map, CellRect rect)
+        {
+            if (!Settings.haulDeconstructionLeftovers)
+                return null;
+            var ids = new HashSet<int>();
+            foreach (IntVec3 c in rect.ExpandedBy(SearchMargin).ClipInsideMap(map))
+            {
+                List<Thing> things = map.thingGrid.ThingsListAtFast(c);
+                for (int i = 0; i < things.Count; i++)
+                {
+                    if (things[i].def.category == ThingCategory.Item)
+                        ids.Add(things[i].thingIDNumber);
+                }
+            }
+            return ids;
+        }
+
+        /// <summary>
+        /// Whatever a deconstruction left lying around that did not go into the inventory (slag or
+        /// stone chunks, fuel, contents...) is hauled by the same pawn right after its job.
+        /// </summary>
+        public static void Notify_DeconstructionLeftovers(Pawn pawn, Map map, CellRect rect, HashSet<int> itemsBefore)
+        {
+            if (!Settings.haulDeconstructionLeftovers || !PawnCanCollect(pawn) || pawn.Map != map)
+                return;
+            HarvestTracker tracker = HarvestTracker.Instance;
+            if (tracker == null)
+                return;
+
+            HarvestLoad load = null;
+            foreach (IntVec3 c in rect.ExpandedBy(SearchMargin).ClipInsideMap(map))
+            {
+                List<Thing> things = map.thingGrid.ThingsListAtFast(c);
+                for (int i = 0; i < things.Count; i++)
+                {
+                    Thing t = things[i];
+                    if (t.def.category != ThingCategory.Item || !t.def.EverHaulable || itemsBefore.Contains(t.thingIDNumber))
+                        continue;
+                    if (t.IsForbidden(pawn) || StoreUtility.IsInValidStorage(t))
+                        continue;
+                    if (load == null)
+                        load = tracker.GetOrCreateLoad(pawn);
+                    if (!load.haulNow.Contains(t))
+                        load.haulNow.Add(t);
+                }
+            }
+            if (load != null)
+            {
+                load.haulNowTick = Find.TickManager.TicksGame;
+                HarvestAndHaulMod.Debug($"{pawn.LabelShort} will haul {load.haulNow.Count} deconstruction leftover(s) right away.");
+            }
         }
 
         /// <summary>Fish were caught. They are placed after this is called, so only the next-tick sweep looks for them.</summary>
@@ -357,7 +415,11 @@ namespace HarvestAndHaul
         {
             HarvestTracker tracker = HarvestTracker.Instance;
             HarvestLoad load = tracker?.GetLoad(pawn);
-            if (load == null || load.Empty || pawn.inventory == null)
+            if (load == null)
+                return;
+            if (TryHaulLeftBehind(pawn, load, ref result))
+                return;
+            if (load.Empty || pawn.inventory == null)
                 return;
 
             load.Reconcile(pawn);
@@ -371,6 +433,53 @@ namespace HarvestAndHaul
             load.lastDeliveryJobTick = Find.TickManager.TicksGame;
             HarvestAndHaulMod.Debug($"{pawn.LabelShort} delivers its load instead of {(result.IsValid ? result.Job.def.defName : "idling")}.");
             result = new ThinkResult(job, result.IsValid ? result.SourceNode : null, JobTag.MiscWork, false);
+        }
+
+        /// <summary>
+        /// Hauls the next thing the pawn's work left behind, using the vanilla haul job, before
+        /// anything that can wait (including more of the same work).
+        /// </summary>
+        private static bool TryHaulLeftBehind(Pawn pawn, HarvestLoad load, ref ThinkResult result)
+        {
+            List<Thing> list = load.haulNow;
+            if (list.Count == 0)
+                return false;
+            if (Find.TickManager.TicksGame - load.haulNowTick > HaulNowWindowTicks || pawn.Map == null)
+            {
+                list.Clear();
+                return false;
+            }
+            if (!CanDeliverNow(pawn, load))
+                return false;
+            if (result.IsValid && (result.FromQueue || result.Job.playerForced || !IsPostponableSource(result.SourceNode)))
+                return false;
+
+            while (list.Count > 0)
+            {
+                // Closest first.
+                int best = 0;
+                for (int i = 1; i < list.Count; i++)
+                {
+                    if (list[i] != null && (list[best] == null || list[i].PositionHeld.DistanceToSquared(pawn.Position) < list[best].PositionHeld.DistanceToSquared(pawn.Position)))
+                        best = i;
+                }
+                Thing thing = list[best];
+                list.RemoveAt(best);
+
+                if (thing == null || !thing.Spawned || thing.Map != pawn.Map || thing.IsForbidden(pawn) || StoreUtility.IsInValidStorage(thing))
+                    continue;
+                if (!thing.Position.InHorDistOf(pawn.Position, HaulNowMaxDistance) || !HaulAIUtility.PawnCanAutomaticallyHaul(pawn, thing, false))
+                    continue;
+                Job haul = HaulAIUtility.HaulToStorageJob(pawn, thing, false);
+                if (haul == null)
+                    continue; // no storage accepts it; leave it for later
+
+                load.lastDeliveryJobTick = Find.TickManager.TicksGame;
+                HarvestAndHaulMod.Debug($"{pawn.LabelShort} hauls {thing.LabelCap} right away instead of {(result.IsValid ? result.Job.def.defName : "idling")}.");
+                result = new ThinkResult(haul, result.IsValid ? result.SourceNode : null, JobTag.MiscWork, false);
+                return true;
+            }
+            return false;
         }
 
         private static bool ShouldDeliverInsteadOf(Pawn pawn, HarvestLoad load, ThinkResult next)
